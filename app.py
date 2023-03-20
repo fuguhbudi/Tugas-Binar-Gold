@@ -53,20 +53,57 @@ def text_processing_abusive_file():
         )
     ''')
 
+    # file = request.files.getlist('file')
     for file in request.files.getlist('file'):
      filename = file.filename
-
+    #  print(file)
     cleaned_text = []
     cleaned_text2 = []
 
+    # ==========================
+
+
+    # csv_reader = csv.reader(file, 'r',)
+    # with open(file, 'r') as file_obj:
+    #     file_data = file_obj.read()
+    #     delimiter = re.search(r'[,;]', file_data).group()
+    #     file_obj.seek(0)
+    #     csv_reader = csv.reader(file_obj, delimiter=delimiter)
+    #     for row in csv_reader:
+    #         print(row)
+
+        # for file in files:
+        # csv_reader = csv.reader(file, quoting=csv.QUOTE_NONE,)
+        # file.save(os.path.join(os.getcwd(), file.filename))
+        # with open(file.filename) as file_obj:
+        #     file_data = file_obj.read()
+        #     delimiter = re.search(r'[,;]', file_data).group()
+        #     file_obj.seek(0)
+        #     csv_reader = csv.reader(file_obj, delimiter=delimiter)
+        #     for row in csv_reader:
+        #         print(row[1])
+
+    # ==========================
+
     # function untuk handle ketika menemukan baris yang bermasalah atau ada , (koma) di tengah text
     def handle_bad_lines(line):
-     line[0] = line[0]+line[1]+line[2]
+     if line[3] != '0' and line[3] != '1':
+        line[0] = line[0]+line[1]+line[2]+line[3]
+        line.pop(3)
+        line.pop(2)
+        line.pop(1)
+     elif line[2] != '0' and line[2] != '1':
+        line[0] = line[0]+line[1]+line[2]
+        line.pop(2)
+        line.pop(1)
+     elif line[1] != '0' and line[1] != '1':
+        line[0] = line[0]+line[1]
+        line.pop(1)
      return line
 
     # membaca file yang di input. di handle disini adalah
     # - delimeter : sebagai pemisah baris
-    # - on_bad_lines : jika di tengah text ada huruf koma di handle oleh fungsi ini
+    # - on_bad_lines : jika di tengah text ada huruf koma di handle oleh fungsi ini (kalo gak ada ini gak bisa dapet semua data)
     # - engine : untuk merubah engine menjadi paython dikarenakan untuk pemrosesan bad lines
     # - header : menandakan baris 1 adalah header jadi tidak diproses
     # - quoting : menghendle text yang memiliki quote di depan dan belakang
@@ -84,13 +121,14 @@ def text_processing_abusive_file():
 
     # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus gar semua data masuk
     sql.execute("DELETE FROM tweet_abusive")
-    sql.commit()
+    connection.commit()
 
     # query untuk insert ke table tweet_abusive 
     query = "INSERT INTO tweet_abusive (tweet) VALUES (?)"
     
     # looping untuk mengganti kata abusive dan dimasukan ke variable cleaned_text dan meng ignore case sensitive dan insert ke database
     for text in text_tweet:
+        print(text)
         cleaned_text2 = re.sub(pattern,r'', text, flags=re.IGNORECASE)
         #Tanda koma pada akhir untuk menandakan membuat sebuah tuple dengan satu elemen, karena jika tidak diberikan tanda koma maka dianggap sebagai tipe data string biasa, bukan tuple.
         sql.execute(query, (cleaned_text2,))
