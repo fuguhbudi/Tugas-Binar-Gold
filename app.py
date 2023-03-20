@@ -82,6 +82,10 @@ def text_processing_abusive_file():
     # digunakan sebagai bahan acuan untuk mereplace  kata abusive
     pattern = "|".join(map(re.escape, list(kata_abusive)))
 
+    # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus gar semua data masuk
+    sql.execute("DELETE FROM tweet_abusive")
+    sql.commit()
+
     # query untuk insert ke table tweet_abusive 
     query = "INSERT INTO tweet_abusive (tweet) VALUES (?)"
     
@@ -320,6 +324,117 @@ def text_processing_alay_input():
 
     response_data = jsonify(json_response)
     return response_data
+
+def __init__(self):
+        self.conn = sqlite3.connect('database/dbtweet.db')
+        self.cursor = self.conn.cursor()
+        self.cursor.execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)')
+        self.conn.commit()
+
+
+# 5. Get bahasa Alay yang menggunakan text inputan
+
+@swag_from("docs/text_processing_text_bahasa_alay_get.yml", methods=['GET'])
+@app.route('/text-processing-text-alay-get', methods=['GET'])
+def text_processing_alay_input_get():
+
+    # koneksikan database dbtweet
+    connection = sqlite3.connect('database/dbtweet.db')
+    sql = connection.cursor()
+    sql.execute("SELECT * FROM tweet_alay_text order by id desc")
+
+    # sql.execute(query, (cleaned_text,))
+    data = sql.fetchall()
+
+
+    json_response = {
+        'status_code': 200,
+        'description': "Teks yang sudah diproses",
+        'data': data,
+    }
+
+    response_data = jsonify(json_response)
+    return response_data
+
+
+# 6. Get bahasa Abusive yang menggunakan text inputan
+
+@swag_from("docs/text_processing_text_bahasa_abusive_get.yml", methods=['GET'])
+@app.route('/text-processing-text-abusive-get', methods=['GET'])
+def text_processing_abusive_input_get():
+
+    # koneksikan database dbtweet
+    connection = sqlite3.connect('database/dbtweet.db')
+    sql = connection.cursor()
+    sql.execute("SELECT * FROM tweet_abusive_text order by id desc")
+
+    # sql.execute(query, (cleaned_text,))
+    data = sql.fetchall()
+
+
+    json_response = {
+        'status_code': 200,
+        'description': "Teks yang sudah diproses",
+        'data': data,
+    }
+
+    response_data = jsonify(json_response)
+    return response_data
+
+
+
+
+
+# 7. Get bahasa Alay yang menggunakan text inputan
+
+@swag_from("docs/text_processing_text_bahasa_alay_get_input.yml", methods=['GET'])
+@app.route('/text-processing-text-alay-get-input', methods=['GET'])
+def text_processing_alay_input_get_input():
+
+    # koneksikan database dbtweet
+    connection = sqlite3.connect('database/dbtweet.db')
+    sql = connection.cursor()
+    sql.execute("SELECT * FROM tweet_alay")
+
+    # sql.execute(query, (cleaned_text,))
+    data = sql.fetchall()
+
+
+    json_response = {
+        'status_code': 200,
+        'description': "Teks yang sudah diproses",
+        'data': data,
+    }
+
+    response_data = jsonify(json_response)
+    return response_data
+
+
+# 8. Get bahasa Abusive yang menggunakan text inputan
+
+@swag_from("docs/text_processing_text_bahasa_abusive_get_input.yml", methods=['GET'])
+@app.route('/text-processing-text-abusive-get-input', methods=['GET'])
+def text_processing_abusive_input_get_input():
+
+    # koneksikan database dbtweet
+    connection = sqlite3.connect('database/dbtweet.db')
+    sql = connection.cursor()
+    sql.execute("SELECT * FROM tweet_abusive")
+
+    # sql.execute(query, (cleaned_text,))
+    data = sql.fetchall()
+
+
+    json_response = {
+        'status_code': 200,
+        'description': "Teks yang sudah diproses",
+        'data': data,
+    }
+
+    response_data = jsonify(json_response)
+    return response_data
+
+
 
 if __name__ == '__main__':
    app.run()

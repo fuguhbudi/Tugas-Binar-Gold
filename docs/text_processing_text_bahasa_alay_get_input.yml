@@ -1,0 +1,16 @@
+tags:
+  - name: Endpoint Bahasa Alay
+get:
+  description: File yang akan diproses
+consumes:
+  - multipart/form-data
+
+responses:
+    '200':
+      description: Successful response
+    '400':
+      description: Bad Request
+    '500':
+      description: Internal Server Error
+
+      
