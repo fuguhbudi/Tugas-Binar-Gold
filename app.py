@@ -2,7 +2,15 @@ import re
 import pandas as pd
 import csv
 import sqlite3
+import emoji as em
 
+
+# import fungsi
+from fungsi.handle_baris import handle_bad_lines
+# from fungsi.connection import connection
+
+
+# import database
 
 from flask import Flask, jsonify
 
@@ -49,7 +57,19 @@ def text_processing_abusive_file():
     sql.execute('''
     CREATE TABLE IF NOT EXISTS tweet_abusive (
         id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        tweet TEXT
+        tweet TEXT,
+        HS BOOLEAN,
+        Abusive BOOLEAN,
+        HS_Individual BOOLEAN,
+        HS_Group BOOLEAN,
+        HS_Religion BOOLEAN,
+        HS_Race BOOLEAN,
+        HS_Physical BOOLEAN,
+        HS_Gender BOOLEAN,
+        HS_Other BOOLEAN,
+        HS_Weak BOOLEAN,
+        HS_Moderate BOOLEAN,
+        HS_Strong BOOLEAN
         )
     ''')
 
@@ -86,20 +106,7 @@ def text_processing_abusive_file():
     # ==========================
 
     # function untuk handle ketika menemukan baris yang bermasalah atau ada , (koma) di tengah text
-    def handle_bad_lines(line):
-     if line[3] != '0' and line[3] != '1':
-        line[0] = line[0]+line[1]+line[2]+line[3]
-        line.pop(3)
-        line.pop(2)
-        line.pop(1)
-     elif line[2] != '0' and line[2] != '1':
-        line[0] = line[0]+line[1]+line[2]
-        line.pop(2)
-        line.pop(1)
-     elif line[1] != '0' and line[1] != '1':
-        line[0] = line[0]+line[1]
-        line.pop(1)
-     return line
+
 
     # membaca file yang di input. di handle disini adalah
     # - delimeter : sebagai pemisah baris
@@ -109,32 +116,110 @@ def text_processing_abusive_file():
     # - quoting : menghendle text yang memiliki quote di depan dan belakang
     # - encoding : digunakan untuk encoding file yang di input
     data_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
-    
+    data_tweet = data_tweet.apply(lambda x: x.str.strip('"') if x.dtype == "object" else x)
+    # print(data_tweet)
     # buka file kamus kata abusive.csv
     kamus_abusive = pd.read_csv("csv/abusive.csv")
 
     text_tweet = data_tweet["Tweet"] # ambil field tweet
     kata_abusive = kamus_abusive["ABUSIVE"] # ambil field abusive
 
-    # digunakan sebagai bahan acuan untuk mereplace  kata abusive
-    pattern = "|".join(map(re.escape, list(kata_abusive)))
+
 
     # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus gar semua data masuk
     sql.execute("DELETE FROM tweet_abusive")
     connection.commit()
 
     # query untuk insert ke table tweet_abusive 
-    query = "INSERT INTO tweet_abusive (tweet) VALUES (?)"
-    
-    # looping untuk mengganti kata abusive dan dimasukan ke variable cleaned_text dan meng ignore case sensitive dan insert ke database
-    for text in text_tweet:
-        print(text)
-        cleaned_text2 = re.sub(pattern,r'', text, flags=re.IGNORECASE)
-        #Tanda koma pada akhir untuk menandakan membuat sebuah tuple dengan satu elemen, karena jika tidak diberikan tanda koma maka dianggap sebagai tipe data string biasa, bukan tuple.
-        sql.execute(query, (cleaned_text2,))
-        cleaned_text.append(re.sub(pattern,r'', text, flags=re.IGNORECASE))
+    query = """INSERT INTO tweet_abusive 
+                    (   tweet,
+                        HS, 
+                        Abusive, 
+                        HS_Individual, 
+                        HS_Group, 
+                        HS_Religion, 
+                        HS_Race, 
+                        HS_Physical, 
+                        HS_Gender, 
+                        HS_Other, 
+                        HS_Weak, 
+                        HS_Moderate, 
+                        HS_Strong) 
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """
+    # emoji_regex = re.compile("[\U0001F600-\U0001F64F]")
 
-    connection.commit()
+    # kumpulan function regex yang di gunakan
+    html_tag = re.compile('<.*?>|&nbsp;|&amp;|&lt;|&gt;') # menghapus html tag
+    hapus_abusive = "|".join(map(re.escape, list(kata_abusive))) # menghapus kata abusive berdasarkan kamus abusive
+    tanda_baca = re.compile(r'(\W)\1+|[@#$%^&;]') # menghapus tanda baca lebih dari satu
+    non_latin_regex = re.compile(r'[^\x00-\x7F]+') # menghapus huruf latin yang tidak terbaca
+    karakter_khusus_regex = re.compile(r'[@$%^&;]') # menghabus karakter kusus
+    kuote_belakang = re.compile(r"\'$") # single quote di belakang
+    emoji_regex = re.compile("[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\u2600-\u26FF\u2700-\u27BF]")
+    
+    combined_pattern = f"{karakter_khusus_regex}|{hapus_abusive}|{html_tag}"
+
+    text_contoh = "USER Ya dkk \xf0\x9f\x98\x84\xf0\x9f\x98\x84\xf0\x9f\x98\x84'"
+    encoded = text_contoh.encode('utf-8')
+
+    # decoded = encoded.decode('unicode_escape')
+
+    emoji = text_contoh.encode('latin1').decode('utf8')
+    display_textemj = em.emojize(emoji)
+    # print(emoji)
+    # print(display_textemj)
+    cleaned_text22222 = re.sub(r'[\U00010000-\U0010ffff]', '', emoji)
+    # print(cleaned_text22222)
+
+    text = '\xf0\x9f\x98\x84\xf0\x9f\x98\x84\xf0\x9f\x98\x84 This is a sample text with emojis \xf0\x9f\x92\xa9\xf0\x9f\x98\x8d\xf0\x9f\x98\xb1'
+    text = text.encode('latin1').decode('utf8')
+    pattern_emo = '[\U0001F600-\U0001F64F\u2600-\u26FF\u2700-\u27BF\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF]+'
+    clean_text = re.sub(pattern_emo, '', text)
+    # print(clean_text)
+
+
+
+    # looping untuk mengganti kata abusive dan dimasukan ke variable cleaned_text dan meng ignore case sensitive dan insert ke database
+    # for text in text_tweet:
+    for index, text in enumerate(text_tweet):
+        cleaned_text2 = tanda_baca.sub(r'\1', re.sub(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', text)), flags=re.IGNORECASE))
+        print(cleaned_text2)
+
+        # Tanda koma pada akhir untuk menandakan membuat sebuah tuple dengan satu elemen, 
+        # karena jika tidak diberikan tanda koma maka dianggap sebagai tipe data string biasa, bukan tuple.
+        # sql.execute(query, ( cleaned_text2,
+        #                      data_tweet["HS"][index], 
+        #                      data_tweet["Abusive"][index], 
+        #                      data_tweet["HS_Individual"][index], 
+        #                      data_tweet["HS_Group"][index], 
+        #                      data_tweet["HS_Religion"][index], 
+        #                      data_tweet["HS_Race"][index], 
+        #                      data_tweet["HS_Physical"][index], 
+        #                      data_tweet["HS_Gender"][index], 
+        #                      data_tweet["HS_Other"][index], 
+        #                      data_tweet["HS_Weak"][index], 
+        #                      data_tweet["HS_Moderate"][index], 
+        #                      data_tweet["HS_Strong"][index])
+        #                      )
+        sql.execute(query, ( cleaned_text2,
+                             data_tweet["HS"][index].item(), 
+                             data_tweet["Abusive"][index].item(), 
+                             data_tweet["HS_Individual"][index].item(), 
+                             data_tweet["HS_Group"][index].item(), 
+                             data_tweet["HS_Religion"][index].item(), 
+                             data_tweet["HS_Race"][index].item(), 
+                             data_tweet["HS_Physical"][index].item(), 
+                             data_tweet["HS_Gender"][index].item(), 
+                             data_tweet["HS_Other"][index].item(), 
+                             data_tweet["HS_Weak"][index].item(), 
+                             data_tweet["HS_Moderate"][index].item(), 
+                             data_tweet["HS_Strong"][index].item())
+                             )
+        connection.commit()
+        cleaned_text.append(re.sub(combined_pattern,r'', text, flags=re.IGNORECASE))
+
+
     connection.close()
 
     # cetak ke file dataKamusAbusive.csv buat output atau pengecekan aja
