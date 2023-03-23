@@ -7,7 +7,7 @@ import emoji as em
 
 # import fungsi
 from fungsi.handle_baris import handle_bad_lines
-# from fungsi.connection import connection
+from fungsi.connection import connection
 
 
 # import database
@@ -51,8 +51,11 @@ swagger = Swagger(app, template=swagger_template,
 @app.route('/text-processing-file-abusive', methods=['POST'])
 def text_processing_abusive_file():
     # koneksikan database dbtweet
-    connection = sqlite3.connect('database/dbtweet.db')
-    sql = connection.cursor()
+    # connection = sqlite3.connect('database/dbtweet.db')
+    conn = connection()
+    # Membuat objek cursor
+    sql = conn.cursor()
+    # sql = connection.cursor()
     # Membuat tabel tweet abusive jika belum ada
     sql.execute('''
     CREATE TABLE IF NOT EXISTS tweet_abusive (
@@ -80,34 +83,6 @@ def text_processing_abusive_file():
     cleaned_text = []
     cleaned_text2 = []
 
-    # ==========================
-
-
-    # csv_reader = csv.reader(file, 'r',)
-    # with open(file, 'r') as file_obj:
-    #     file_data = file_obj.read()
-    #     delimiter = re.search(r'[,;]', file_data).group()
-    #     file_obj.seek(0)
-    #     csv_reader = csv.reader(file_obj, delimiter=delimiter)
-    #     for row in csv_reader:
-    #         print(row)
-
-        # for file in files:
-        # csv_reader = csv.reader(file, quoting=csv.QUOTE_NONE,)
-        # file.save(os.path.join(os.getcwd(), file.filename))
-        # with open(file.filename) as file_obj:
-        #     file_data = file_obj.read()
-        #     delimiter = re.search(r'[,;]', file_data).group()
-        #     file_obj.seek(0)
-        #     csv_reader = csv.reader(file_obj, delimiter=delimiter)
-        #     for row in csv_reader:
-        #         print(row[1])
-
-    # ==========================
-
-    # function untuk handle ketika menemukan baris yang bermasalah atau ada , (koma) di tengah text
-
-
     # membaca file yang di input. di handle disini adalah
     # - delimeter : sebagai pemisah baris
     # - on_bad_lines : jika di tengah text ada huruf koma di handle oleh fungsi ini (kalo gak ada ini gak bisa dapet semua data)
@@ -115,6 +90,7 @@ def text_processing_abusive_file():
     # - header : menandakan baris 1 adalah header jadi tidak diproses
     # - quoting : menghendle text yang memiliki quote di depan dan belakang
     # - encoding : digunakan untuk encoding file yang di input
+    # data_tweet = pd.read_table(file, delimiter='\t', engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
     data_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
     data_tweet = data_tweet.apply(lambda x: x.str.strip('"') if x.dtype == "object" else x)
     # print(data_tweet)
@@ -124,11 +100,9 @@ def text_processing_abusive_file():
     text_tweet = data_tweet["Tweet"] # ambil field tweet
     kata_abusive = kamus_abusive["ABUSIVE"] # ambil field abusive
 
-
-
     # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus gar semua data masuk
-    sql.execute("DELETE FROM tweet_abusive")
-    connection.commit()
+    conn.execute("DELETE FROM tweet_abusive")
+    conn.commit()
 
     # query untuk insert ke table tweet_abusive 
     query = """INSERT INTO tweet_abusive 
@@ -147,7 +121,6 @@ def text_processing_abusive_file():
                         HS_Strong) 
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
             """
-    # emoji_regex = re.compile("[\U0001F600-\U0001F64F]")
 
     # kumpulan function regex yang di gunakan
     html_tag = re.compile('<.*?>|&nbsp;|&amp;|&lt;|&gt;') # menghapus html tag
@@ -178,8 +151,6 @@ def text_processing_abusive_file():
     clean_text = re.sub(pattern_emo, '', text)
     # print(clean_text)
 
-
-
     # looping untuk mengganti kata abusive dan dimasukan ke variable cleaned_text dan meng ignore case sensitive dan insert ke database
     # for text in text_tweet:
     for index, text in enumerate(text_tweet):
@@ -188,20 +159,6 @@ def text_processing_abusive_file():
 
         # Tanda koma pada akhir untuk menandakan membuat sebuah tuple dengan satu elemen, 
         # karena jika tidak diberikan tanda koma maka dianggap sebagai tipe data string biasa, bukan tuple.
-        # sql.execute(query, ( cleaned_text2,
-        #                      data_tweet["HS"][index], 
-        #                      data_tweet["Abusive"][index], 
-        #                      data_tweet["HS_Individual"][index], 
-        #                      data_tweet["HS_Group"][index], 
-        #                      data_tweet["HS_Religion"][index], 
-        #                      data_tweet["HS_Race"][index], 
-        #                      data_tweet["HS_Physical"][index], 
-        #                      data_tweet["HS_Gender"][index], 
-        #                      data_tweet["HS_Other"][index], 
-        #                      data_tweet["HS_Weak"][index], 
-        #                      data_tweet["HS_Moderate"][index], 
-        #                      data_tweet["HS_Strong"][index])
-        #                      )
         sql.execute(query, ( cleaned_text2,
                              data_tweet["HS"][index].item(), 
                              data_tweet["Abusive"][index].item(), 
@@ -216,11 +173,11 @@ def text_processing_abusive_file():
                              data_tweet["HS_Moderate"][index].item(), 
                              data_tweet["HS_Strong"][index].item())
                              )
-        connection.commit()
+        conn.commit()
         cleaned_text.append(re.sub(combined_pattern,r'', text, flags=re.IGNORECASE))
 
-
-    connection.close()
+# Menutup koneksi ke database
+    conn.close()
 
     # cetak ke file dataKamusAbusive.csv buat output atau pengecekan aja
     my_list = [[s] for s in cleaned_text]
@@ -235,8 +192,6 @@ def text_processing_abusive_file():
         'data': cleaned_text,
     }
 
-    # Menutup koneksi ke database
-    connection.close()
     
     response_data = jsonify(json_response)
     return response_data

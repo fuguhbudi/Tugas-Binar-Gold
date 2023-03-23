@@ -1,7 +1,7 @@
+# function untuk handle ketika menemukan baris yang bermasalah atau ada , (koma) di tengah text
+# koding sementara masih jelek dan akan di perbaiki
 def handle_bad_lines(line):
      panjang_list = len(line)
-     if panjang_list == int(28):
-        print("masuk lebih besar dari 13")
      if panjang_list == int(27):
             line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]+line[7]+line[8]+line[9]+line[10]+line[11]+line[12]+line[13]+line[14]
             line.pop(14)
