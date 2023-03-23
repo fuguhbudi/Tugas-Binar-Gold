@@ -8,6 +8,7 @@ from fungsi.handle_baris import handle_bad_lines # import fungsi
 from fungsi.connection import connection # import database connection
 from fungsi.query import insert_tweet_abusive, delete_tweet_abusive, create_tweet_abusive # import query tweet_abusive
 from fungsi.query import insert_tweet_alay, delete_tweet_alay, create_tweet_alay # import query tweet_alay
+from fungsi.regex import html_tag, tanda_baca, non_latin_regex, karakter_khusus_regex, kuote_belakang, emoji_regex
 
 from flask import Flask, jsonify
 from flask import request
@@ -81,13 +82,13 @@ def text_processing_abusive_file():
     conn.commit()
 
     # kumpulan function regex yang di gunakan
-    html_tag = re.compile('<.*?>|&nbsp;|&amp;|&lt;|&gt;') # menghapus html tag
+    # html_tag = re.compile('<.*?>|&nbsp;|&amp;|&lt;|&gt;') # menghapus html tag
     hapus_abusive = "|".join(map(re.escape, list(kata_abusive))) # menghapus kata abusive berdasarkan kamus abusive
-    tanda_baca = re.compile(r'(\W)\1+|[@#$%^&;]') # menghapus tanda baca lebih dari satu
-    non_latin_regex = re.compile(r'[^\x00-\x7F]+') # menghapus huruf latin yang tidak terbaca
-    karakter_khusus_regex = re.compile(r'[@$%^&;]') # menghabus karakter kusus
-    kuote_belakang = re.compile(r"\'$") # single quote di belakang
-    emoji_regex = re.compile("[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\u2600-\u26FF\u2700-\u27BF]")
+    # tanda_baca = re.compile(r'(\W)\1+|[@#$%^&;]') # menghapus tanda baca lebih dari satu
+    # non_latin_regex = re.compile(r'[^\x00-\x7F]+') # menghapus huruf latin yang tidak terbaca
+    # karakter_khusus_regex = re.compile(r'[@$%^&;]') # menghabus karakter kusus
+    # kuote_belakang = re.compile(r"\'$") # single quote di belakang
+    # emoji_regex = re.compile("[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\u2600-\u26FF\u2700-\u27BF]")
     
     combined_pattern = f"{karakter_khusus_regex}|{hapus_abusive}|{html_tag}"
 
@@ -98,6 +99,7 @@ def text_processing_abusive_file():
 
     emoji = text_contoh.encode('latin1').decode('utf8')
 
+    baris = 0
 
     text = '\xf0\x9f\x98\x84\xf0\x9f\x98\x84\xf0\x9f\x98\x84 This is a sample text with emojis \xf0\x9f\x92\xa9\xf0\x9f\x98\x8d\xf0\x9f\x98\xb1'
     text = text.encode('latin1').decode('utf8')
@@ -109,7 +111,7 @@ def text_processing_abusive_file():
     # for text in text_tweet:
     for index, text in enumerate(text_tweet):
         cleaned_text2 = tanda_baca.sub(r'\1', re.sub(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', text)), flags=re.IGNORECASE))
-        print(cleaned_text2)
+        # print(cleaned_text2)
 
         # Tanda koma pada akhir untuk menandakan membuat sebuah tuple dengan satu elemen, 
         # karena jika tidak diberikan tanda koma maka dianggap sebagai tipe data string biasa, bukan tuple.
@@ -127,10 +129,12 @@ def text_processing_abusive_file():
                                             data_tweet["HS_Moderate"][index].item(), 
                                             data_tweet["HS_Strong"][index].item())
                                             )
-        conn.commit()
+        baris=baris+1
+        print("{} baris terproses".format(baris)) # untuk debug baris terprocess di terminal karena data banyak dan processnya lama
         cleaned_text.append(re.sub(combined_pattern,r'', text, flags=re.IGNORECASE))
 
     # Menutup koneksi ke database
+    conn.commit()
     conn.close()
 
     # cetak ke file dataKamusAbusive.csv buat output atau pengecekan aja
@@ -169,12 +173,12 @@ def text_processing_alay_file():
     my_dict = {}
     new_tweet = {}
     new_dict = {}
-    my_tweet = []
+    # my_tweet = []
 
     data_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
-    for row_tweet in data_tweet["Tweet"]:
-     my_tweet.append(row_tweet)
-    
+    # for row_tweet in data_tweet["Tweet"]:
+    #  my_tweet.append(row_tweet)
+    text_tweet = data_tweet["Tweet"]
     # buka file kamus alay
     with open('csv/new_kamusalay.csv', 'r') as file_kamus_alay:
      reader = csv.reader(file_kamus_alay)
@@ -188,11 +192,15 @@ def text_processing_alay_file():
 
     baris = 0
 
+    # kumpulan function regex yang di gunakan
     pattern_alay = re.compile(r'\b(' + '|'.join(new_dict.keys()) + r')\b', flags=re.IGNORECASE)
-    # pattern_alay = re.compile(r'\b(' + '|'.join(new_dict.keys()) + r')\b', flags=re.IGNORECASE)
-    # pattern_quotes = re.compile(r'"{3}|"', flags=re.IGNORECASE)
-    # combined_pattern = re.compile(f'({pattern_alay.pattern}|{pattern_quotes.pattern})')
-        # pattern_alay = re.compile(r'\b(' + '|'.join(new_dict.keys()) + r')\b|"|""', flags=re.IGNORECASE)
+    # html_tag = re.compile('<.*?>|&nbsp;|&amp;|&lt;|&gt;') # menghapus html tag
+    # tanda_baca = re.compile(r'(\W)\1+|[@#$%^&;]') # menghapus tanda baca lebih dari satu
+    # non_latin_regex = re.compile(r'[^\x00-\x7F]+') # menghapus huruf latin yang tidak terbaca
+    # karakter_khusus_regex = re.compile(r'[@$%^&;]') # menghabus karakter kusus
+    # kuote_belakang = re.compile(r"\'$") # single quote di belakang
+    
+    combined_pattern = f"{karakter_khusus_regex}|{html_tag}"
 
     # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus gar semua data masuk
     conn.execute(delete_tweet_alay)
@@ -201,10 +209,15 @@ def text_processing_alay_file():
     # Mengganti kata alay dalam setiap kalimat dengan kata yang sesuai dalam kamus_alay menggunakan re.sub
     
     # Disini harus di optimasi lagi karena masih terlalu lama
-    for index in range(len(my_tweet)):
-     new_tweet[index] = pattern_alay.sub(lambda m: new_dict[m.group().lower()], my_tweet[index])
+    # for index in range(len(my_tweet)):
+    for index, text in enumerate(text_tweet):
+     new_tweet = tanda_baca.sub(r'\1', re.subn(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', pattern_alay.sub(lambda m: new_dict[m.group().lower()], text))), flags=re.IGNORECASE)[0])
+
+
+
+    #  new_tweet[index] = pattern_alay.sub(lambda m: new_dict[m.group().lower()], my_tweet[index])
     #  sql.execute(insert_tweet_alay, (new_tweet[index],))
-     sql.execute(insert_tweet_alay, ( new_tweet[index],
+     sql.execute(insert_tweet_alay, ( new_tweet,
                                          data_tweet["HS"][index].item(), 
                                          data_tweet["Abusive"][index].item(), 
                                          data_tweet["HS_Individual"][index].item(), 
@@ -219,15 +232,15 @@ def text_processing_alay_file():
                                          data_tweet["HS_Strong"][index].item())
                                             )
      baris=baris+1
-     print("{} baris terproses".format(baris)) # untuk pengecekan/liat baris terprocess di terminal karena data banyak dan processnya lama
+     print("{} baris terproses".format(baris)) # untuk debug baris terprocess di terminal karena data banyak dan processnya lama
 
     conn.commit()
     conn.close()
 
-    my_list = [[s] for s in new_tweet.values()]
-    with open('dataKamusAlay.csv', 'w', newline='') as file:
-     writer = csv.writer(file)
-     writer.writerows(my_list)
+    # my_list = [[s] for s in new_tweet.values()]
+    # with open('dataKamusAlay.csv', 'w', newline='') as file:
+    #  writer = csv.writer(file)
+    #  writer.writerows(my_list)
 
     json_response = {
         'status_code': 200,
