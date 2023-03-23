@@ -6,7 +6,8 @@ import emoji as em
 
 from fungsi.handle_baris import handle_bad_lines # import fungsi
 from fungsi.connection import connection # import database connection
-from fungsi.query import insert_tweet_abusive, delete_tweet_abusive, create_tweet_abusive # import query
+from fungsi.query import insert_tweet_abusive, delete_tweet_abusive, create_tweet_abusive # import query tweet_abusive
+from fungsi.query import insert_tweet_alay, delete_tweet_alay, create_tweet_alay # import query tweet_alay
 
 from flask import Flask, jsonify
 from flask import request
@@ -19,7 +20,7 @@ app.json_encoder = LazyJSONEncoder
 swagger_template = dict(
 info = {
     'title': LazyString(lambda: 'API Documentation for Data Processing and Modeling'),
-    'version': LazyString(lambda: '1.2.1'),
+    'version': LazyString(lambda: '1.2.2'),
     'description': LazyString(lambda: 'Dokumentasi API untuk Data Processing dan Modeling'),
     },
     host = LazyString(lambda: request.host)
@@ -155,56 +156,23 @@ def text_processing_abusive_file():
 @app.route('/text-processing-file-alay', methods=['POST'])
 def text_processing_alay_file():
 
-    connection = sqlite3.connect('database/dbtweet.db')
-    sql = connection.cursor()
+    conn = connection()
+    sql = conn.cursor()
     # Membuat tabel tweet abusive jika belum ada
-    sql.execute('''
-    CREATE TABLE IF NOT EXISTS tweet_alay (
-        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        tweet TEXT
-        )
-    ''')
+    sql.execute(create_tweet_alay)
 
     # Upladed file
     # file = request.files.getlist('file')
     for file in request.files.getlist('file'):
      filename = file.filename
-    #  print(filename)
-        
-
-    # Import file csv ke Pandas
-    # df = pd.read_csv(file)
-
-    # Import file csv ke Pandas sebagai data pembanding regex
-    # dfKamusAlay = pd.read_csv("csv/new_kamusalaynewlagi.csv",encoding = "utf-8",low_memory=False, errors='ignore', delim_whitespace = True)
-    
-    # baca file kamus alay untuk di bandingkan ke data parsingan
-    # dfKamusAlay = pd.read_csv("csv/datautf.csv", error_bad_lines=False)
-    # dfAbusive = pd.read_csv("csv/abusive.csv")
-    # dfaaaaaa = pd.read_csv("csv/new_kamusalay.csv", encoding='iso-8859-1')
-
-    # with open('csv/new_kamusalay.csv', 'r') as file:
-    #  reader = csv.reader(file)
-    # for row in reader:
-    #  print(row)
-
 
     my_dict = {}
     new_tweet = {}
     new_dict = {}
     my_tweet = []
-    
-    # dfaaaaaa = csv.DictReader(dfaaaaaa, delimiter=',')
 
-    def handle_bad_lines(line):
-     line[0] = line[0]+line[1]+line[2]
-    #  print(line[0])
-     return line
-    #  return ','.join(parts)
-
-
-    text_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
-    for row_tweet in text_tweet["Tweet"]:
+    data_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
+    for row_tweet in data_tweet["Tweet"]:
      my_tweet.append(row_tweet)
     
     # buka file kamus alay
@@ -226,19 +194,35 @@ def text_processing_alay_file():
     # combined_pattern = re.compile(f'({pattern_alay.pattern}|{pattern_quotes.pattern})')
         # pattern_alay = re.compile(r'\b(' + '|'.join(new_dict.keys()) + r')\b|"|""', flags=re.IGNORECASE)
 
+    # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus gar semua data masuk
+    conn.execute(delete_tweet_alay)
+    conn.commit()
     
     # Mengganti kata alay dalam setiap kalimat dengan kata yang sesuai dalam kamus_alay menggunakan re.sub
-    query = "INSERT INTO tweet_alay (tweet) VALUES (?)"
     
     # Disini harus di optimasi lagi karena masih terlalu lama
     for index in range(len(my_tweet)):
      new_tweet[index] = pattern_alay.sub(lambda m: new_dict[m.group().lower()], my_tweet[index])
-     sql.execute(query, (new_tweet[index],))
+    #  sql.execute(insert_tweet_alay, (new_tweet[index],))
+     sql.execute(insert_tweet_alay, ( new_tweet[index],
+                                         data_tweet["HS"][index].item(), 
+                                         data_tweet["Abusive"][index].item(), 
+                                         data_tweet["HS_Individual"][index].item(), 
+                                         data_tweet["HS_Group"][index].item(), 
+                                         data_tweet["HS_Religion"][index].item(), 
+                                         data_tweet["HS_Race"][index].item(), 
+                                         data_tweet["HS_Physical"][index].item(), 
+                                         data_tweet["HS_Gender"][index].item(), 
+                                         data_tweet["HS_Other"][index].item(), 
+                                         data_tweet["HS_Weak"][index].item(), 
+                                         data_tweet["HS_Moderate"][index].item(), 
+                                         data_tweet["HS_Strong"][index].item())
+                                            )
      baris=baris+1
      print("{} baris terproses".format(baris)) # untuk pengecekan/liat baris terprocess di terminal karena data banyak dan processnya lama
 
-    connection.commit()
-    connection.close()
+    conn.commit()
+    conn.close()
 
     my_list = [[s] for s in new_tweet.values()]
     with open('dataKamusAlay.csv', 'w', newline='') as file:

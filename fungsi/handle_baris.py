@@ -136,3 +136,13 @@ def handle_bad_lines(line):
             line[0] = line[0]+line[1]
             line.pop(1)
      return line
+
+# panjang_list = len(line)
+# if panjang_list == 27:
+#     line[0] = ''.join(line[0:15])
+#     del line[1:15]
+
+# panjang_list = len(line)
+# if panjang_list == 27:
+#     line[0] = ','.join(line[0:15])
+#     del line[1:15]
