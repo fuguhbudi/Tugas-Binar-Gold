@@ -4,27 +4,22 @@ import csv
 import sqlite3
 import emoji as em
 
-
-# import fungsi
-from fungsi.handle_baris import handle_bad_lines
-from fungsi.connection import connection
-
-
-# import database
+from fungsi.handle_baris import handle_bad_lines # import fungsi
+from fungsi.connection import connection # import database connection
+from fungsi.query import insert_tweet_abusive, delete_tweet_abusive, create_tweet_abusive # import query
 
 from flask import Flask, jsonify
-
-app = Flask(__name__)
-
 from flask import request
 from flasgger import Swagger, LazyString, LazyJSONEncoder
 from flasgger import swag_from
+app = Flask(__name__)
+
 
 app.json_encoder = LazyJSONEncoder
 swagger_template = dict(
 info = {
     'title': LazyString(lambda: 'API Documentation for Data Processing and Modeling'),
-    'version': LazyString(lambda: '1.0.0'),
+    'version': LazyString(lambda: '1.2.1'),
     'description': LazyString(lambda: 'Dokumentasi API untuk Data Processing dan Modeling'),
     },
     host = LazyString(lambda: request.host)
@@ -44,37 +39,17 @@ swagger_config = {
 swagger = Swagger(app, template=swagger_template,             
                   config=swagger_config)
 
-
 # 1. Remove kalimat Abusive menggunakan file inputan
 
 @swag_from("docs/text_processing_file_abusive.yml", methods=['POST'])
 @app.route('/text-processing-file-abusive', methods=['POST'])
 def text_processing_abusive_file():
-    # koneksikan database dbtweet
-    # connection = sqlite3.connect('database/dbtweet.db')
+
     conn = connection()
-    # Membuat objek cursor
     sql = conn.cursor()
-    # sql = connection.cursor()
+
     # Membuat tabel tweet abusive jika belum ada
-    sql.execute('''
-    CREATE TABLE IF NOT EXISTS tweet_abusive (
-        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        tweet TEXT,
-        HS BOOLEAN,
-        Abusive BOOLEAN,
-        HS_Individual BOOLEAN,
-        HS_Group BOOLEAN,
-        HS_Religion BOOLEAN,
-        HS_Race BOOLEAN,
-        HS_Physical BOOLEAN,
-        HS_Gender BOOLEAN,
-        HS_Other BOOLEAN,
-        HS_Weak BOOLEAN,
-        HS_Moderate BOOLEAN,
-        HS_Strong BOOLEAN
-        )
-    ''')
+    sql.execute(create_tweet_abusive)
 
     # file = request.files.getlist('file')
     for file in request.files.getlist('file'):
@@ -90,10 +65,10 @@ def text_processing_abusive_file():
     # - header : menandakan baris 1 adalah header jadi tidak diproses
     # - quoting : menghendle text yang memiliki quote di depan dan belakang
     # - encoding : digunakan untuk encoding file yang di input
-    # data_tweet = pd.read_table(file, delimiter='\t', engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
+
     data_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
     data_tweet = data_tweet.apply(lambda x: x.str.strip('"') if x.dtype == "object" else x)
-    # print(data_tweet)
+
     # buka file kamus kata abusive.csv
     kamus_abusive = pd.read_csv("csv/abusive.csv")
 
@@ -101,26 +76,8 @@ def text_processing_abusive_file():
     kata_abusive = kamus_abusive["ABUSIVE"] # ambil field abusive
 
     # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus gar semua data masuk
-    conn.execute("DELETE FROM tweet_abusive")
+    conn.execute(delete_tweet_abusive)
     conn.commit()
-
-    # query untuk insert ke table tweet_abusive 
-    query = """INSERT INTO tweet_abusive 
-                    (   tweet,
-                        HS, 
-                        Abusive, 
-                        HS_Individual, 
-                        HS_Group, 
-                        HS_Religion, 
-                        HS_Race, 
-                        HS_Physical, 
-                        HS_Gender, 
-                        HS_Other, 
-                        HS_Weak, 
-                        HS_Moderate, 
-                        HS_Strong) 
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-            """
 
     # kumpulan function regex yang di gunakan
     html_tag = re.compile('<.*?>|&nbsp;|&amp;|&lt;|&gt;') # menghapus html tag
@@ -139,11 +96,7 @@ def text_processing_abusive_file():
     # decoded = encoded.decode('unicode_escape')
 
     emoji = text_contoh.encode('latin1').decode('utf8')
-    display_textemj = em.emojize(emoji)
-    # print(emoji)
-    # print(display_textemj)
-    cleaned_text22222 = re.sub(r'[\U00010000-\U0010ffff]', '', emoji)
-    # print(cleaned_text22222)
+
 
     text = '\xf0\x9f\x98\x84\xf0\x9f\x98\x84\xf0\x9f\x98\x84 This is a sample text with emojis \xf0\x9f\x92\xa9\xf0\x9f\x98\x8d\xf0\x9f\x98\xb1'
     text = text.encode('latin1').decode('utf8')
@@ -159,24 +112,24 @@ def text_processing_abusive_file():
 
         # Tanda koma pada akhir untuk menandakan membuat sebuah tuple dengan satu elemen, 
         # karena jika tidak diberikan tanda koma maka dianggap sebagai tipe data string biasa, bukan tuple.
-        sql.execute(query, ( cleaned_text2,
-                             data_tweet["HS"][index].item(), 
-                             data_tweet["Abusive"][index].item(), 
-                             data_tweet["HS_Individual"][index].item(), 
-                             data_tweet["HS_Group"][index].item(), 
-                             data_tweet["HS_Religion"][index].item(), 
-                             data_tweet["HS_Race"][index].item(), 
-                             data_tweet["HS_Physical"][index].item(), 
-                             data_tweet["HS_Gender"][index].item(), 
-                             data_tweet["HS_Other"][index].item(), 
-                             data_tweet["HS_Weak"][index].item(), 
-                             data_tweet["HS_Moderate"][index].item(), 
-                             data_tweet["HS_Strong"][index].item())
-                             )
+        sql.execute(insert_tweet_abusive, ( cleaned_text2,
+                                            data_tweet["HS"][index].item(), 
+                                            data_tweet["Abusive"][index].item(), 
+                                            data_tweet["HS_Individual"][index].item(), 
+                                            data_tweet["HS_Group"][index].item(), 
+                                            data_tweet["HS_Religion"][index].item(), 
+                                            data_tweet["HS_Race"][index].item(), 
+                                            data_tweet["HS_Physical"][index].item(), 
+                                            data_tweet["HS_Gender"][index].item(), 
+                                            data_tweet["HS_Other"][index].item(), 
+                                            data_tweet["HS_Weak"][index].item(), 
+                                            data_tweet["HS_Moderate"][index].item(), 
+                                            data_tweet["HS_Strong"][index].item())
+                                            )
         conn.commit()
         cleaned_text.append(re.sub(combined_pattern,r'', text, flags=re.IGNORECASE))
 
-# Menutup koneksi ke database
+    # Menutup koneksi ke database
     conn.close()
 
     # cetak ke file dataKamusAbusive.csv buat output atau pengecekan aja
@@ -192,7 +145,6 @@ def text_processing_abusive_file():
         'data': cleaned_text,
     }
 
-    
     response_data = jsonify(json_response)
     return response_data
 
