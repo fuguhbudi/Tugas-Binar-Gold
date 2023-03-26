@@ -4,6 +4,6 @@ class getDatas(object):
         self.cursor = mysql.connect().cursor()
 
     def getAllData(self):
-        self.cursor.execute("SELECT * FROM employees")
+        self.cursor.execute("SELECT * FROM customers")
         aData = self.cursor.fetchall()
         return aData

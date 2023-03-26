@@ -3,135 +3,44 @@
 def handle_bad_lines(line):
      panjang_list = len(line)
      if panjang_list == int(27):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]+line[7]+line[8]+line[9]+line[10]+line[11]+line[12]+line[13]+line[14]
-            line.pop(14)
-            line.pop(13)
-            line.pop(12)
-            line.pop(11)
-            line.pop(10)
-            line.pop(9)
-            line.pop(8)
-            line.pop(7)
-            line.pop(6)
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:14])
+            del line[14:0:-1]
      elif panjang_list == int(26):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]+line[7]+line[8]+line[9]+line[10]+line[11]+line[12]+line[13]
-            line.pop(13)
-            line.pop(12)
-            line.pop(11)
-            line.pop(10)
-            line.pop(9)
-            line.pop(8)
-            line.pop(7)
-            line.pop(6)
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:13])
+            del line[13:0:-1]
      elif panjang_list == int(25):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]+line[7]+line[8]+line[9]+line[10]+line[11]+line[12]
-            line.pop(12)
-            line.pop(11)
-            line.pop(10)
-            line.pop(9)
-            line.pop(8)
-            line.pop(7)
-            line.pop(6)
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:12])
+            del line[12:0:-1]
      elif panjang_list == int(24):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]+line[7]+line[8]+line[9]+line[10]+line[11]
-            line.pop(11)
-            line.pop(10)
-            line.pop(9)
-            line.pop(8)
-            line.pop(7)
-            line.pop(6)
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:11])
+            del line[11:0:-1]
      elif panjang_list == int(23):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]+line[7]+line[8]+line[9]+line[10]
-            line.pop(10)
-            line.pop(9)
-            line.pop(8)
-            line.pop(7)
-            line.pop(6)
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:10])
+            del line[10:0:-1]
      elif panjang_list == int(22):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]+line[7]+line[8]+line[9]
-            line.pop(9)
-            line.pop(8)
-            line.pop(7)
-            line.pop(6)
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:9])
+            del line[9:0:-1]
      elif panjang_list == int(21):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]+line[7]+line[8]
-            line.pop(8)
-            line.pop(7)
-            line.pop(6)
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:8])
+            del line[8:0:-1]
      elif panjang_list == int(20):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]+line[7]
-            line.pop(7)
-            line.pop(6)
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:7])
+            del line[7:0:-1]
      elif panjang_list == int(19):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]+line[6]
-            line.pop(6)
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:6])
+            del line[6:0:-1]
      elif panjang_list == int(18):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]+line[5]
-            line.pop(5)
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:5])
+            del line[5:0:-1]
      elif panjang_list == int(17):
-            line[0] = line[0]+line[1]+line[2]+line[3]+line[4]
-            line.pop(4)
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:4])
+            del line[4:0:-1]
      elif panjang_list == int(16):
-            line[0] = line[0]+line[1]+line[2]+line[3]
-            line.pop(3)
-            line.pop(2)
-            line.pop(1)
+            line[0] = ','.join(line[0:3])
+            del line[3:0:-1]
      elif panjang_list == int(15):
-            line[0] = line[0]+line[1]+line[2]
-            line.pop(2)
-            line.pop(1)
+            line[0] = ', '.join(line[0:2])
+            del line[2:0:-1]
      elif panjang_list == int(14):
             line[0] = line[0]+line[1]
             line.pop(1)

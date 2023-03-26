@@ -120,3 +120,26 @@ create_tweet_alay = """
                                 HS_Strong BOOLEAN
                                 )
                         """
+
+# Membuat tabel dengan kolom yang dibutuhkan
+create_table_alay = """
+                            CREATE TABLE IF NOT EXISTS kalimat_alay(
+                                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                                kata_alay TEXT, 
+                                jumlah int
+                                )
+                        """
+
+# query untuk insert ke table tweet_abusive 
+insert_alay_word = """INSERT INTO kalimat_alay(
+                                    kata_alay,
+                                    jumlah
+                                    )
+                             VALUES (?,?)
+                        """
+
+# query untuk update ke table tweet_abusive 
+update_alay_word = """UPDATE   kalimat_alay
+                        SET    jumlah = ?
+                        WHERE  kata_alay = ?
+                   """

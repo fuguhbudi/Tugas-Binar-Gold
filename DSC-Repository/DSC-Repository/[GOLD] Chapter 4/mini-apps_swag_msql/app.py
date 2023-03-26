@@ -41,7 +41,6 @@ def landing_page():
     """
     return tampilan_awal
 
-
 @swag_from("classicmodels/hello_mysql.yml", methods=['GET'])
 @app.route("/data-customers", methods=["GET"]) #endpoint
 def getData():
@@ -60,6 +59,5 @@ def getData():
     response_data = response
     return response_data
     
-
 app.run("0.0.0.0", debug=True)
 
