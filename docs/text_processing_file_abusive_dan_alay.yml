@@ -1,5 +1,5 @@
 tags:
-  - name: 01. Endpoint Bahasa Abusive Dan Alay
+  - name: Endpoint Bahasa Abusive Dan Alay
 get:
   description: Teks yang akan diproses
 consumes:

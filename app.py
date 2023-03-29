@@ -6,9 +6,10 @@ import emoji
 
 from fungsi.handle_baris import handle_bad_lines # import fungsi
 from fungsi.connection import connection # import database connection
-from fungsi.query import insert_tweet_content, delete_tweet_content, create_tweet_content, create_table_alay, insert_alay_word, update_alay_word # import query tweet_content
-from fungsi.query import insert_tweet_abusive, delete_tweet_abusive, create_tweet_abusive # import query tweet_abusive
-from fungsi.query import insert_tweet_alay, delete_tweet_alay, create_tweet_alay # import query tweet_alay
+from fungsi.query import insert_tweet_content, delete_tweet_content, create_tweet_content, create_table_alay
+from fungsi.query import insert_alay_word, update_alay_word, delete_kalimat_alay, create_table_abusive # import query tweet_content
+from fungsi.query import create_tweet_text, insert_tweet_text # import query tweet_abusive
+from fungsi.query import insert_tweet_alay, delete_tweet_alay, create_tweet_alay, insert_abusive_word, update_abusive_word # import query tweet_alay
 from fungsi.regex import html_tag, tanda_baca, non_latin_regex, karakter_khusus_regex, kuote_belakang, emoji_regex #import fungsi regex
 from fungsi.regex import whitespace_regex, enter_regex, alphanumeric_regex, lowercase_regex
 # retweet_regex, username_regex
@@ -26,7 +27,7 @@ swagger_template = dict(
 info = {
     'title': LazyString(lambda: 'API Documentation for Data Processing and Modeling'),
     'version': LazyString(lambda: '1.4.1'),
-    'description': LazyString(lambda: 'Dokumentasi API untuk Data Processing dan Modeling'),
+    'description': LazyString(lambda: 'Dokumentasi API untuk data processing untuk penghapusan bahasa alay dan abusive menggunakan file inputan dan text'),
     },
     host = LazyString(lambda: request.host)
 )
@@ -46,7 +47,7 @@ swagger = Swagger(app, template=swagger_template,
                   config=swagger_config)
 
 
-# 0. Remove kalimat Abusive dan Alay menggunakan file inputan
+# 1. Remove kalimat Abusive dan Alay menggunakan file inputan
 
 @swag_from("docs/text_processing_file_abusive_dan_alay.yml", methods=['POST'])
 @app.route('/text-processing-file-abusive-dan-alay', methods=['POST'])
@@ -57,7 +58,8 @@ def text_processing_abusive_and_alay_file():
 
     # Membuat tabel tweet abusive jika belum ada
     sql.execute(create_tweet_content)
-    sql.execute(create_table_alay)
+    # sql.execute(create_table_alay)
+    # sql.execute(create_table_abusive)
 
     # file = request.files.getlist('file')
     for file in request.files.getlist('file'):
@@ -85,9 +87,7 @@ def text_processing_abusive_and_alay_file():
     kamus_abusive = pd.read_csv("csv/abusive.csv")
     
     #kamus kata alay
-    
     kata_abusive = kamus_abusive["ABUSIVE"] # ambil field abusive
-
     
     with open('csv/new_kamusalay.csv', 'r') as file_kamus_alay:
      reader = csv.reader(file_kamus_alay)
@@ -97,9 +97,10 @@ def text_processing_abusive_and_alay_file():
       my_dict[key] = value  # memasukkan data ke dalam kamus
     
      new_dict = {key.replace(',', '='): value.replace(',', ':') for key, value in my_dict.items()}
-    
+
     # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus agar semua data masuk
     conn.execute(delete_tweet_content)
+    conn.execute(delete_kalimat_alay)
     conn.commit()
 
     # kumpulan function regex yang di gunakan
@@ -107,30 +108,22 @@ def text_processing_abusive_and_alay_file():
     hapus_abusive = "|".join(map(re.escape, list(kata_abusive))) # menghapus kata abusive berdasarkan kamus abusive
 
     # regex yang digunakan untuk processing
-    combined_pattern = f"{karakter_khusus_regex}|{hapus_abusive}|{html_tag}|{non_latin_regex}|{whitespace_regex}|{emoji_regex}|{emoji_regex}|{alphanumeric_regex}"
-
-    jumlah_penggantian = {}
-    jumlah_penggantian_kalimat = {}
-
-    def pengganti(match, jumlah_penggantian_kalimat):
-        kata = match.group(0)
-        if kata in jumlah_penggantian_kalimat:
-            jumlah_penggantian_kalimat[kata] += 1
-            sql.execute(update_alay_word, (jumlah_penggantian_kalimat[kata], kata))
-        else:
-            jumlah_penggantian_kalimat[kata] = 1
-            sql.execute(insert_alay_word,(kata, jumlah_penggantian_kalimat[kata]))
-
-        return new_dict[kata.lower()]
+    combined_pattern = f"{karakter_khusus_regex}|{html_tag}|{non_latin_regex}|{whitespace_regex}|{alphanumeric_regex}|{hapus_abusive}"
 
     # looping untuk mengganti kata abusive dan dimasukan ke variable cleaned_text dan meng ignore case sensitive dan insert ke database
     for index, text in enumerate(text_tweet):
-        # cleaned_text2 = tanda_baca.sub(r'\1', re.subn(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', pattern_alay.sub(lambda m: new_dict[m.group().lower()], lowercase_regex.sub(lambda x: x.group(0).lower(), text)))), flags=re.IGNORECASE)[0])
-        cleaned_text2 = tanda_baca.sub(r'\1', re.subn(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', pattern_alay.sub(lambda m: pengganti(m, jumlah_penggantian_kalimat), lowercase_regex.sub(lambda x: x.group(0).lower(), text)))), flags=re.IGNORECASE)[0])
-        jumlah_penggantian.update(jumlah_penggantian_kalimat)
-        # cleaned_text2 = tanda_baca.sub(r'\1', re.subn(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', pattern_alay.sub(lambda m: new_dict[m.group().lower()], lowercase_regex.sub(lambda x: x.group(0).lower(), text))))))[0]
-        # Tanda koma pada akhir untuk menandakan membuat sebuah tuple dengan satu elemen, 
-        # karena jika tidak diberikan tanda koma maka dianggap sebagai tipe data string biasa, bukan tuple.
+        cleaned_text2 = tanda_baca.sub(r'\1', 
+                        re.subn( combined_pattern, '',
+                        non_latin_regex.sub('', 
+                        kuote_belakang.sub('', 
+                        pattern_alay.sub(lambda m: new_dict[m.group().lower()], 
+                        lowercase_regex.sub(lambda x: x.group(0).lower(), text)))), 
+                        flags=re.IGNORECASE)[0])
+
+        # cleaned_text2 = tanda_baca.sub(r'\1', re.subn(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', pattern_alay.sub(lambda m: pengganti(m, jumlah_penggantian_kalimat), lowercase_regex.sub(lambda x: x.group(0).lower(), text)))), flags=re.IGNORECASE)[0])
+
+        
+        # pattern_alay.sub(lambda m: new_dict[m.group().lower()], text)
         sql.execute(insert_tweet_content, ( cleaned_text2,
                                             data_tweet["HS"][index].item(), 
                                             data_tweet["Abusive"][index].item(), 
@@ -155,7 +148,7 @@ def text_processing_abusive_and_alay_file():
     conn.commit()
     conn.close()
 
-    print("Jumlah penggantian per kata: ", jumlah_penggantian)
+    # print("Jumlah penggantian per kata: ", jumlah_penggantian)
 
 
     # cetak ke file dataKamusAbusive.csv buat output atau pengecekan aja
@@ -174,228 +167,66 @@ def text_processing_abusive_and_alay_file():
     response_data = jsonify(json_response)
     return response_data
 
-# 0.1 total kata alay
+# 2. Remove bahasa Alay menggunakan text inputan
 
-@swag_from("docs/get_hc_count.yml", methods=['GET'])
-@app.route('/get-hc-count', methods=['GET'])
-def get_hc_count():
-
-    # koneksikan database dbtweet
-    connection = sqlite3.connect('database/dbtweet.db')
-    sql = connection.cursor()
-    sql.execute("SELECT HS FROM tweet_content")
-
-    # sql.execute(query, (cleaned_text,))
-    data = sql.fetchall()
-    df = pd.DataFrame(data, columns=[i[0] for i in sql.description])
-    value_counts = df['HS'].value_counts().to_dict()
-
-    json_response = {
-        'status_code': 200,
-        'description': "Teks yang sudah diproses",
-        'data': {
-            'jumlah_HS_True': value_counts[1],
-            'jumlah_HS_False': value_counts[0],
-        }
-    }
-
-    response_data = jsonify(json_response)
-    return response_data
-
-
-# 0.2 alay tweet shape dan netral shape
-
-@swag_from("docs/get_hc_shape.yml", methods=['GET'])
-@app.route('/get-hc-shape', methods=['GET'])
-def get_hc_shape():
+@swag_from("docs/text_processing_text_bahasa_alay.yml", methods=['POST'])
+@app.route('/text-processing-text-alay', methods=['POST'])
+def text_processing_alay_input():
 
     # koneksikan database dbtweet
-    connection = sqlite3.connect('database/dbtweet.db')
-    sql = connection.cursor()
-    sql.execute("SELECT * FROM tweet_content")
-
-    # sql.execute(query, (cleaned_text,))
-    data = sql.fetchall()
-    df = pd.DataFrame(data, columns=[i[0] for i in sql.description])
-    value_counts = df['HS'].value_counts().to_dict()
-    print(df.HS.value_counts())
-
-    negatif_tweet_shape = df[(df['HS'] == 1) | (df['Abusive'] == 1)].shape
-    neutral_shape = df[(df['HS'] == 0) & (df['Abusive'] == 0)].shape
-
-    print(negatif_tweet_shape[0])
-    print(neutral_shape[0])
-
-    json_response = {
-        'status_code': 200,
-        'description': "Teks yang sudah diproses",
-        'data': {
-            'jumlah_alay_tweet': negatif_tweet_shape[0],
-            'jumlah_netral_tweet': neutral_shape[0],
-        }
-    }
-
-    response_data = jsonify(json_response)
-    return response_data
-
-
-# 0.3 Analysis
-
-@swag_from("docs/get_univariate_analysis.yml", methods=['GET'])
-@app.route('/univariate-analysis', methods=['GET'])
-def univariate_analysis():
-
-    data = pd.read_csv('csv/data.csv', encoding='latin-1')
-    print(data)
-
-    # koneksikan database dbtweet
-    connection = sqlite3.connect('database/dbtweet.db')
-    sql = connection.cursor()
-
-    univariate_analysis = "SELECT sum(HS) as total_hs, sum(ABUSIVE) as total_abusive FROM tweet_content"
-    sql.execute(univariate_analysis)
-
-    # sql.execute(query, (cleaned_text,))
-    data_univariate_analysis = sql.fetchall()
-    df_univariate_analysis = pd.DataFrame(data_univariate_analysis, columns=[i[0] for i in sql.description])
-
-
-    from collections import Counter
-
-    # Menghitung modus pada kolom pertama
-    counts_col1 = Counter(df_univariate_analysis.iloc[:, 0])
-    mode_col1 = [k for k, v in counts_col1.items() if v == max(counts_col1.values())]
-
-    # Menghitung modus pada kolom kedua
-    counts_col2 = Counter(df_univariate_analysis.iloc[:, 1])
-    mode_col2 = [k for k, v in counts_col2.items() if v == max(counts_col2.values())]
-
-    print(mode_col2)
-
-    json_response = {
-        'status_code': 200,
-        'description': "Measures of Central Tendency",
-        'data': {
-            'Univariate Analysis': {
-                'Measures of Central Tendency': {
-                    'mean':     {
-                                    'Kata Alay' : df_univariate_analysis.mean()[0],
-                                    'Kata Abusive' : df_univariate_analysis.mean()[1]
-                                },
-                    'median':   {
-                                    'Kata Alay' : df_univariate_analysis.median()[0],
-                                    'Kata Abusive' : df_univariate_analysis.median()[1]
-                                },
-                    'mode':     {
-                                    'Kata Alay' : mode_col1[0],
-                                    'Kata Abusive' : mode_col2[0]
-                                },
-                },
-                'Measures of Spread': {
-                    'Range': 10,
-                    'Quartile dan Interquartile Range': 50,
-                    'Variance': 10,
-                    'Standard deviasi': 50
-
-                },
-                'Measures to Describe Shape of Distribution': {
-                    'Skewness': 10,
-                    'Kurtosis': 50
-
-                }
-            }
-        }
-    }
-
-
-    response_data = jsonify(json_response)
-    return response_data
-
-
-
-# 1. Remove kalimat Abusive menggunakan file inputan
-
-@swag_from("docs/text_processing_file_abusive.yml", methods=['POST'])
-@app.route('/text-processing-file-abusive', methods=['POST'])
-def text_processing_abusive_file():
-
     conn = connection()
     sql = conn.cursor()
 
-    # Membuat tabel tweet abusive jika belum ada
-    sql.execute(create_tweet_abusive)
+    # Membuat tabel tweet alay jika belum ada
+    sql.execute(create_tweet_text)
 
-    # file = request.files.getlist('file')
-    for file in request.files.getlist('file'):
-     filename = file.filename
-    #  print(file)
-    cleaned_text = []
-    cleaned_text2 = []
+    # ambil value input text dari swagger
+    text_alay = request.form.get('text')
     
-    text_tweet = []
-    text_Abusive = []
-    baris = 0
+    my_dict = {}
+    new_dict = {}
+    cleaned_text = ""
 
-    # membaca file yang di input. di handle disini adalah
-    # - delimeter : sebagai pemisah baris
-    # - on_bad_lines : jika di tengah text ada huruf koma di handle oleh fungsi ini (kalo gak ada ini gak bisa dapet semua data)
-    # - engine : untuk merubah engine menjadi paython dikarenakan untuk pemrosesan bad lines
-    # - header : menandakan baris 1 adalah header jadi tidak diproses
-    # - quoting : menghendle text yang memiliki quote di depan dan belakang
-    # - encoding : digunakan untuk encoding file yang di input
-    
-
-    data_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
-    data_tweet = data_tweet.apply(lambda x: x.str.strip('"') if x.dtype == "object" else x)
-    
-    # buka file kamus kata abusive.csv
+    # buka file kamus kata abusive
     kamus_abusive = pd.read_csv("csv/abusive.csv")
-    text_tweet = data_tweet["Tweet"] # ambil field tweet
-    text_Abusive = data_tweet["Abusive"]
+    
+    #kamus kata alay
     kata_abusive = kamus_abusive["ABUSIVE"] # ambil field abusive
+    
+    # buka file kamus alay format csv kemudian di definisikan ke variable dictionary baru
+    with open('csv/new_kamusalay.csv', 'r') as file:
+     reader = csv.reader(file)
+     for row in reader:
+      key = row[0]  # mengambil nilai dari row 0 sebagai kunci
+      value = row[1]  # mengambil nilai dari row 1 sebagai nilai
+      my_dict[key] = value  # memasukkan data ke dalam kamus
+    
+    new_dict = {key.replace(',', '='): value.replace(',', ':') for key, value in my_dict.items()}
+    pattern_alay = re.compile(r'\b(' + '|'.join(new_dict.keys()) + r')\b', flags=re.IGNORECASE)
 
-    # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus gar semua data masuk
-    conn.execute(delete_tweet_abusive)
-    conn.commit()
+    # kumpulan function regex yang di gunakan
+    pattern_alay = re.compile(r'\b(' + '|'.join(new_dict.keys()) + r')\b', flags=re.IGNORECASE)
+    hapus_abusive = "|".join(map(re.escape, list(kata_abusive))) # menghapus kata abusive berdasarkan kamus abusive
+    
+    # regex yang digunakan untuk processing
+    combined_pattern = f"{karakter_khusus_regex}|{html_tag}|{non_latin_regex}|{whitespace_regex}|{alphanumeric_regex}|{hapus_abusive}"
 
-    hapus_abusive = "|".join(map(re.escape, list(kata_abusive))) # menghapus kata abusive berdasarkan kamus abusive    
-    combined_pattern = f"{karakter_khusus_regex}|{hapus_abusive}|{html_tag}|{enter_regex}|{kuote_belakang}|{emoji_regex}|{alphanumeric_regex}"
+    # cleaned_text = pattern_alay.sub(lambda m: new_dict[m.group().lower()], text_alay)
+    cleaned_text = tanda_baca.sub(r'\1', 
+                        re.subn( combined_pattern, '',
+                        non_latin_regex.sub('', 
+                        kuote_belakang.sub('', 
+                        pattern_alay.sub(lambda m: new_dict[m.group().lower()], 
+                        lowercase_regex.sub(lambda x: x.group(0).lower(), text_alay)))), 
+                        flags=re.IGNORECASE)[0])
+    
 
-    # looping untuk mengganti kata abusive dan dimasukan ke variable cleaned_text dan meng ignore case sensitive dan insert ke database
-    for index, text in enumerate(text_tweet):
-        cleaned_text2 = tanda_baca.sub(r'\1', re.sub(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', lowercase_regex.sub(lambda x: x.group(0).lower(), text))), flags=re.IGNORECASE))
+    sql.execute(insert_tweet_text, (cleaned_text,))
 
-        # Tanda koma pada akhir untuk menandakan membuat sebuah tuple dengan satu elemen, 
-        # karena jika tidak diberikan tanda koma maka dianggap sebagai tipe data string biasa, bukan tuple.
-        sql.execute(insert_tweet_abusive, ( cleaned_text2,
-                                            data_tweet["HS"][index].item(), 
-                                            data_tweet["Abusive"][index].item(), 
-                                            data_tweet["HS_Individual"][index].item(), 
-                                            data_tweet["HS_Group"][index].item(), 
-                                            data_tweet["HS_Religion"][index].item(), 
-                                            data_tweet["HS_Race"][index].item(), 
-                                            data_tweet["HS_Physical"][index].item(), 
-                                            data_tweet["HS_Gender"][index].item(), 
-                                            data_tweet["HS_Other"][index].item(), 
-                                            data_tweet["HS_Weak"][index].item(), 
-                                            data_tweet["HS_Moderate"][index].item(), 
-                                            data_tweet["HS_Strong"][index].item())
-                                            )
-        baris=baris+1
-        print("{} baris terproses".format(baris)) # untuk debug baris terprocess di terminal karena data banyak dan processnya lama
-        cleaned_text.append(re.sub(combined_pattern,r'', text, flags=re.IGNORECASE))
 
-    # eksekusi kemudian menutup koneksi ke database
     conn.commit()
     conn.close()
 
-    # cetak ke file dataKamusAbusive.csv buat output atau pengecekan aja
-    my_list = [[s] for s in cleaned_text]
-    with open('dataKamusAbusive.csv', 'w', newline='') as file:
-     writer = csv.writer(file)
-     writer.writerows(my_list)
-
-    # output Swagger
     json_response = {
         'status_code': 200,
         'description': "Teks yang sudah diproses",
@@ -404,6 +235,250 @@ def text_processing_abusive_file():
 
     response_data = jsonify(json_response)
     return response_data
+
+
+# # 0.1 total kata alay
+
+# @swag_from("docs/get_hc_count.yml", methods=['GET'])
+# @app.route('/get-hc-count', methods=['GET'])
+# def get_hc_count():
+
+#     # koneksikan database dbtweet
+#     connection = sqlite3.connect('database/dbtweet.db')
+#     sql = connection.cursor()
+#     sql.execute("SELECT HS FROM tweet_content")
+
+#     # sql.execute(query, (cleaned_text,))
+#     data = sql.fetchall()
+#     df = pd.DataFrame(data, columns=[i[0] for i in sql.description])
+#     value_counts = df['HS'].value_counts().to_dict()
+
+#     json_response = {
+#         'status_code': 200,
+#         'description': "Teks yang sudah diproses",
+#         'data': {
+#             'jumlah_HS_True': value_counts[1],
+#             'jumlah_HS_False': value_counts[0],
+#         }
+#     }
+
+#     response_data = jsonify(json_response)
+#     return response_data
+
+
+# # 0.2 alay tweet shape dan netral shape
+
+# @swag_from("docs/get_hc_shape.yml", methods=['GET'])
+# @app.route('/get-hc-shape', methods=['GET'])
+# def get_hc_shape():
+
+#     # koneksikan database dbtweet
+#     connection = sqlite3.connect('database/dbtweet.db')
+#     sql = connection.cursor()
+#     sql.execute("SELECT * FROM tweet_content")
+
+#     # sql.execute(query, (cleaned_text,))
+#     data = sql.fetchall()
+#     df = pd.DataFrame(data, columns=[i[0] for i in sql.description])
+#     value_counts = df['HS'].value_counts().to_dict()
+#     print(df.HS.value_counts())
+
+#     negatif_tweet_shape = df[(df['HS'] == 1) | (df['Abusive'] == 1)].shape
+#     neutral_shape = df[(df['HS'] == 0) & (df['Abusive'] == 0)].shape
+
+#     print(negatif_tweet_shape[0])
+#     print(neutral_shape[0])
+
+#     json_response = {
+#         'status_code': 200,
+#         'description': "Teks yang sudah diproses",
+#         'data': {
+#             'jumlah_alay_tweet': negatif_tweet_shape[0],
+#             'jumlah_netral_tweet': neutral_shape[0],
+#         }
+#     }
+
+#     response_data = jsonify(json_response)
+#     return response_data
+
+
+# # 0.3 Analysis
+
+# @swag_from("docs/get_univariate_analysis.yml", methods=['GET'])
+# @app.route('/univariate-analysis', methods=['GET'])
+# def univariate_analysis():
+
+#     # koneksikan database dbtweet
+#     connection = sqlite3.connect('database/dbtweet.db')
+#     sql = connection.cursor()
+
+#     kalimat_abusive = "SELECT jumlah FROM kalimat_abusive"
+#     sql.execute(kalimat_abusive)    
+#     # sql.execute(query, (cleaned_text,))
+#     data_abusive = sql.fetchall()
+    
+
+
+#     import numpy as np
+#     import statistics as stat
+
+
+#     jumlah_list_abusive = []
+#     for row in data_abusive:
+#         jumlah_list_abusive.append(row[0]) # indeks 0 merujuk pada kolom 'jumlah'
+
+#     kalimat_alay = "SELECT jumlah FROM kalimat_alay"
+#     sql.execute(kalimat_abusive)
+
+
+#     sql.execute(kalimat_alay)
+#     data_alay = sql.fetchall()
+
+#     jumlah_list_alay = []
+#     for row in data_alay:
+#         jumlah_list_alay.append(row[0]) # indeks 0 merujuk pada kolom 'jumlah'
+    
+#     mean_abusive = np.mean(jumlah_list_abusive)
+#     median_abusive = np.median(jumlah_list_abusive)
+#     mode_abusive = stat.mode(jumlah_list_abusive)
+
+#     mean_alay = np.mean(jumlah_list_alay)
+#     median_alay = np.median(jumlah_list_alay)
+#     mode_alay = stat.mode(jumlah_list_alay)
+
+
+#     json_response = {
+#         'status_code': 200,
+#         'description': "Measures of Central Tendency",
+#         'data': {
+#             'Univariate Analysis': {
+#                 'Measures of Central Tendency': {
+#                     'mean':     {
+#                                     'Kata Alay' : mean_alay,
+#                                     'Kata Abusive' : mean_abusive
+#                                 },
+#                     'median':   {
+#                                     'Kata Alay' : median_alay,
+#                                     'Kata Abusive' : median_abusive
+#                                 },
+#                     'mode':     {
+#                                     'Kata Alay' : mode_alay,
+#                                     'Kata Abusive' : mode_abusive
+#                                 },
+#                 },
+#                 'Measures of Spread': {
+#                     'Range': 10,
+#                     'Quartile dan Interquartile Range': 50,
+#                     'Variance': 10,
+#                     'Standard deviasi': 50
+
+#                 },
+#                 'Measures to Describe Shape of Distribution': {
+#                     'Skewness': 10,
+#                     'Kurtosis': 50
+
+#                 }
+#             }
+#         }
+#     }
+
+
+#     response_data = jsonify(json_response)
+#     return response_data
+
+
+
+# # 1. Remove kalimat Abusive menggunakan file inputan
+
+# @swag_from("docs/text_processing_file_abusive.yml", methods=['POST'])
+# @app.route('/text-processing-file-abusive', methods=['POST'])
+# def text_processing_abusive_file():
+
+#     conn = connection()
+#     sql = conn.cursor()
+
+#     # Membuat tabel tweet abusive jika belum ada
+#     sql.execute(create_tweet_abusive)
+
+#     # file = request.files.getlist('file')
+#     for file in request.files.getlist('file'):
+#      filename = file.filename
+#     #  print(file)
+#     cleaned_text = []
+#     cleaned_text2 = []
+    
+#     text_tweet = []
+#     text_Abusive = []
+#     baris = 0
+
+#     # membaca file yang di input. di handle disini adalah
+#     # - delimeter : sebagai pemisah baris
+#     # - on_bad_lines : jika di tengah text ada huruf koma di handle oleh fungsi ini (kalo gak ada ini gak bisa dapet semua data)
+#     # - engine : untuk merubah engine menjadi paython dikarenakan untuk pemrosesan bad lines
+#     # - header : menandakan baris 1 adalah header jadi tidak diproses
+#     # - quoting : menghendle text yang memiliki quote di depan dan belakang
+#     # - encoding : digunakan untuk encoding file yang di input
+    
+
+#     data_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
+#     data_tweet = data_tweet.apply(lambda x: x.str.strip('"') if x.dtype == "object" else x)
+    
+#     # buka file kamus kata abusive.csv
+#     kamus_abusive = pd.read_csv("csv/abusive.csv")
+#     text_tweet = data_tweet["Tweet"] # ambil field tweet
+#     text_Abusive = data_tweet["Abusive"]
+#     kata_abusive = kamus_abusive["ABUSIVE"] # ambil field abusive
+
+#     # agar data tidak bertumpuk di delete semua table kemudian di insert baru bisa di hapus gar semua data masuk
+#     conn.execute(delete_tweet_abusive)
+#     conn.commit()
+
+#     hapus_abusive = "|".join(map(re.escape, list(kata_abusive))) # menghapus kata abusive berdasarkan kamus abusive    
+#     combined_pattern = f"{karakter_khusus_regex}|{hapus_abusive}|{html_tag}|{enter_regex}|{kuote_belakang}|{emoji_regex}|{alphanumeric_regex}"
+
+#     # looping untuk mengganti kata abusive dan dimasukan ke variable cleaned_text dan meng ignore case sensitive dan insert ke database
+#     for index, text in enumerate(text_tweet):
+#         cleaned_text2 = tanda_baca.sub(r'\1', re.sub(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', lowercase_regex.sub(lambda x: x.group(0).lower(), text))), flags=re.IGNORECASE))
+
+#         # Tanda koma pada akhir untuk menandakan membuat sebuah tuple dengan satu elemen, 
+#         # karena jika tidak diberikan tanda koma maka dianggap sebagai tipe data string biasa, bukan tuple.
+#         sql.execute(insert_tweet_abusive, ( cleaned_text2,
+#                                             data_tweet["HS"][index].item(), 
+#                                             data_tweet["Abusive"][index].item(), 
+#                                             data_tweet["HS_Individual"][index].item(), 
+#                                             data_tweet["HS_Group"][index].item(), 
+#                                             data_tweet["HS_Religion"][index].item(), 
+#                                             data_tweet["HS_Race"][index].item(), 
+#                                             data_tweet["HS_Physical"][index].item(), 
+#                                             data_tweet["HS_Gender"][index].item(), 
+#                                             data_tweet["HS_Other"][index].item(), 
+#                                             data_tweet["HS_Weak"][index].item(), 
+#                                             data_tweet["HS_Moderate"][index].item(), 
+#                                             data_tweet["HS_Strong"][index].item())
+#                                             )
+#         baris=baris+1
+#         print("{} baris terproses".format(baris)) # untuk debug baris terprocess di terminal karena data banyak dan processnya lama
+#         cleaned_text.append(re.sub(combined_pattern,r'', text, flags=re.IGNORECASE))
+
+#     # eksekusi kemudian menutup koneksi ke database
+#     conn.commit()
+#     conn.close()
+
+#     # cetak ke file dataKamusAbusive.csv buat output atau pengecekan aja
+#     my_list = [[s] for s in cleaned_text]
+#     with open('dataKamusAbusive.csv', 'w', newline='') as file:
+#      writer = csv.writer(file)
+#      writer.writerows(my_list)
+
+#     # output Swagger
+#     json_response = {
+#         'status_code': 200,
+#         'description': "Teks yang sudah diproses",
+#         'data': cleaned_text,
+#     }
+
+#     response_data = jsonify(json_response)
+#     return response_data
 
 
 # # 2. remove bahasa Alay menggunakan file inputan
@@ -427,7 +502,8 @@ def text_processing_abusive_file():
 #     new_dict = {}
 #     # my_tweet = []
 
-#     data_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
+#     # data_tweet = pd.read_csv(file, delimiter=',', on_bad_lines=handle_bad_lines, engine='python', header=0, quoting=csv.QUOTE_NONE, encoding='iso-8859-1')
+#     data_tweet = pd.read_csv(file, encoding='latin-1')
 #     # for row_tweet in data_tweet["Tweet"]:
 #     #  my_tweet.append(row_tweet)
 #     text_tweet = data_tweet["Tweet"]
@@ -463,28 +539,29 @@ def text_processing_abusive_file():
 #     # Disini harus di optimasi lagi karena masih terlalu lama
 #     # for index in range(len(my_tweet)):
 #     for index, text in enumerate(text_tweet):
-#      new_tweet = tanda_baca.sub(r'\1', re.subn(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', pattern_alay.sub(lambda m: new_dict[m.group().lower()], text))), flags=re.IGNORECASE)[0])
+#     #  new_tweet = tanda_baca.sub(r'\1', re.subn(combined_pattern, '', non_latin_regex.sub('', kuote_belakang.sub('', pattern_alay.sub(lambda m: new_dict[m.group().lower()], text))), flags=re.IGNORECASE)[0])
 
+#         new_tweet = text
 
 
 #     #  new_tweet[index] = pattern_alay.sub(lambda m: new_dict[m.group().lower()], my_tweet[index])
 #     #  sql.execute(insert_tweet_alay, (new_tweet[index],))
-#      sql.execute(insert_tweet_alay, ( new_tweet,
-#                                          data_tweet["HS"][index].item(), 
-#                                          data_tweet["Abusive"][index].item(), 
-#                                          data_tweet["HS_Individual"][index].item(), 
-#                                          data_tweet["HS_Group"][index].item(), 
-#                                          data_tweet["HS_Religion"][index].item(), 
-#                                          data_tweet["HS_Race"][index].item(), 
-#                                          data_tweet["HS_Physical"][index].item(), 
-#                                          data_tweet["HS_Gender"][index].item(), 
-#                                          data_tweet["HS_Other"][index].item(), 
-#                                          data_tweet["HS_Weak"][index].item(), 
-#                                          data_tweet["HS_Moderate"][index].item(), 
-#                                          data_tweet["HS_Strong"][index].item())
-#                                             )
-#      baris=baris+1
-#      print("{} baris terproses".format(baris)) # untuk debug baris terprocess di terminal karena data banyak dan processnya lama
+#         sql.execute(insert_tweet_alay, ( new_tweet,
+#                                             data_tweet["HS"][index].item(), 
+#                                             data_tweet["Abusive"][index].item(), 
+#                                             data_tweet["HS_Individual"][index].item(), 
+#                                             data_tweet["HS_Group"][index].item(), 
+#                                             data_tweet["HS_Religion"][index].item(), 
+#                                             data_tweet["HS_Race"][index].item(), 
+#                                             data_tweet["HS_Physical"][index].item(), 
+#                                             data_tweet["HS_Gender"][index].item(), 
+#                                             data_tweet["HS_Other"][index].item(), 
+#                                             data_tweet["HS_Weak"][index].item(), 
+#                                             data_tweet["HS_Moderate"][index].item(), 
+#                                             data_tweet["HS_Strong"][index].item())
+#                                                 )
+#         baris=baris+1
+#         print("{} baris terproses".format(baris)) # untuk debug baris terprocess di terminal karena data banyak dan processnya lama
 
 #     conn.commit()
 #     conn.close()

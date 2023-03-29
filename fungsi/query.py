@@ -121,6 +121,9 @@ create_tweet_alay = """
                                 )
                         """
 
+# Query Delete isi table tweet_abusive
+delete_kalimat_alay = "DELETE FROM kalimat_alay"
+
 # Membuat tabel dengan kolom yang dibutuhkan
 create_table_alay = """
                             CREATE TABLE IF NOT EXISTS kalimat_alay(
@@ -143,3 +146,48 @@ update_alay_word = """UPDATE   kalimat_alay
                         SET    jumlah = ?
                         WHERE  kata_alay = ?
                    """
+
+# Membuat tabel dengan kolom yang dibutuhkan
+create_table_abusive = """
+                            CREATE TABLE IF NOT EXISTS kalimat_abusive(
+                                id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                                kata_alay TEXT, 
+                                jumlah int
+                                )
+                    """
+
+# query untuk insert ke table tweet_abusive 
+insert_abusive_word =   """INSERT INTO kalimat_abusive(
+                                    kata_alay,
+                                    jumlah
+                                    )
+                             VALUES (?,?)
+                        """
+
+# query untuk update ke table tweet_abusive 
+update_abusive_word =   """UPDATE   kalimat_abusive
+                                SET    jumlah = ?
+                                WHERE  kata_alay = ?
+                        """
+
+
+
+
+
+
+# Membuat tabel tweet text jika belum ada
+create_tweet_text = """
+                CREATE TABLE IF NOT EXISTS tweet_text (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        tweet TEXT
+                        )
+             """
+
+# query untuk insert ke table tweet text 
+insert_tweet_text =   """INSERT INTO tweet_text(
+                                    tweet
+                                    )
+                             VALUES (?)
+                        """
+             
+
