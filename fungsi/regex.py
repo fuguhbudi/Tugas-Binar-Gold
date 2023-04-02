@@ -2,7 +2,6 @@ import re
 
 # kumpulan function regex yang di gunakan
 html_tag = re.compile('<.*?>|&nbsp;|&amp;|&lt;|&gt;') # menghapus html tag
-# hapus_abusive = "|".join(map(re.escape, list(kata_abusive))) # menghapus kata abusive berdasarkan kamus abusive
 tanda_baca = re.compile(r'(\W)\1+|[@#$%^&;.,!"]') # menghapus tanda baca lebih dari satu
 non_latin_regex = re.compile(r'[^\x00-\x7F]+') # menghapus huruf latin yang tidak terbaca
 karakter_khusus_regex = re.compile(r'[@$%^&;]') # menghabus karakter kusus
@@ -12,9 +11,10 @@ whitespace_regex = re.compile(r"\s+") # menghapus white space
 alphanumeric_regex = re.compile(r'^\w+$') #menghapus alpanumeric
 lowercase_regex = re.compile(r'[A-Z]') # mengganti huruf besar
 enter_regex = re.compile(r'\n')
+retweet_regex = re.compile(r'rt')  # menghapus retweet symbol
+
 # enter_regex = re.compile(r'\n', ' '),  # menghapus '\n'
 # retweet_regex = re.compile(r'rt', ' '),  # menghapus retweet symbol
 # username_regex = re.compile(r'user', ' '),  # menghapus username
-# url_regex = re.compile(r'(www\.[^\s]+)|(https?://[^\s]+)|(http?://[^\s]+)', ' '),  # menghapus URL
 # whitespace_regex2 = re.compile(r' +', ' '),  # menghapus extra whitespaces
 # retweet_regex, username_regex, url_regex, whitespace_regex2 

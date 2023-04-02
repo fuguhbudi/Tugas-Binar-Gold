@@ -3,14 +3,12 @@ import pandas as pd
 import csv
 import sqlite3
 
-from fungsi.handle_baris import handle_bad_lines # import fungsi
 from fungsi.connection import connection # import database connection
-from fungsi.query import insert_tweet_content, delete_tweet_content, create_tweet_content
-from fungsi.query import create_tweet_text, insert_tweet_text # import query tweet_abusive
+from fungsi.query import insert_tweet_content, delete_tweet_content, create_tweet_content # import query tweet_content
+from fungsi.query import create_tweet_text, insert_tweet_text # import query tweet_text
 from fungsi.regex import html_tag, tanda_baca, non_latin_regex, karakter_khusus_regex, kuote_belakang, emoji_regex #import fungsi regex
-from fungsi.regex import whitespace_regex, enter_regex, alphanumeric_regex, lowercase_regex
-# retweet_regex, username_regex
-# from fungsi.regex import url_regex, whitespace_regex2
+from fungsi.regex import whitespace_regex, alphanumeric_regex, lowercase_regex, retweet_regex
+from fungsi.function import cari_alay, cari_abusive, handle_bad_lines # import fungsi
 
 from flask import Flask, jsonify
 from flask import request
@@ -22,12 +20,13 @@ app = Flask(__name__)
 app.json_encoder = LazyJSONEncoder
 swagger_template = dict(
 info = {
-    'title': LazyString(lambda: 'API Documentation for Data Processing and Modeling'),
-    'version': LazyString(lambda: '1.4.1'),
+    'title': LazyString(lambda: 'API Documentation for Data Processing'),
+    'version': LazyString(lambda: '1.4.3'),
     'description': LazyString(lambda: 'Dokumentasi API untuk data processing untuk penghapusan bahasa alay dan abusive menggunakan file inputan dan text'),
     },
     host = LazyString(lambda: request.host)
 )
+
 swagger_config = {
     "headers": [],
     "specs": [
@@ -46,9 +45,16 @@ swagger = Swagger(app, template=swagger_template,
 
 # 1. Remove kalimat Abusive dan Alay menggunakan file inputan
 
-@swag_from("docs/text_processing_file_abusive_dan_alay.yml", methods=['POST'])
-@app.route('/text-processing-file-abusive-dan-alay', methods=['POST'])
-def text_processing_abusive_and_alay_file():
+@swag_from("docs/text_processing_file.yml", methods=['POST'])
+@app.route('/file-abusive-dan-alay', methods=['POST'])
+def text_abusive_and_alay_file():
+
+    baris = 0
+    my_dict = {}
+    json_data = []
+    jumlah_alay = []
+    cleaned_text = []
+    jumlah_abusive = []
 
     conn = connection()
     sql = conn.cursor()
@@ -56,17 +62,11 @@ def text_processing_abusive_and_alay_file():
     # Membuat tabel tweet abusive jika belum ada
     sql.execute(create_tweet_content)
 
-    # file = request.files.getlist('file')
     for file in request.files.getlist('file'):
      filename = file.filename
-    #  print(file)
-    cleaned_text = []
-    cleaned_text2 = []
-    json_data = []
-    my_dict = {}
-    baris = 0
 
-    #ini cuma buat cara ke dua manggil file
+    # digunakan jika encodenya adalah ISO 8859-1 hanya untuk experiment saja 
+    # ini cuma buat cara ke dua manggil file
     # membaca file yang di input. di handle disini adalah
     # - delimeter : sebagai pemisah baris
     # - on_bad_lines : jika di tengah text ada huruf koma di handle oleh fungsi ini (kalo gak ada ini gak bisa dapet semua data)
@@ -78,8 +78,8 @@ def text_processing_abusive_and_alay_file():
 
     data_tweet = pd.read_csv(file, encoding='latin-1')
 
-
-    text_tweet = data_tweet["Tweet"] # ambil field tweet
+    # ambil field tweet
+    text_tweet = data_tweet["Tweet"] 
 
     # buka file kamus kata abusive
     kamus_abusive = pd.read_csv("csv/abusive.csv")
@@ -102,22 +102,31 @@ def text_processing_abusive_and_alay_file():
 
     # kumpulan function regex yang di gunakan
     pattern_alay = re.compile(r'\b(' + '|'.join(new_dict.keys()) + r')\b', flags=re.IGNORECASE)
-    hapus_abusive = "|".join(map(re.escape, list(kata_abusive))) # menghapus kata abusive berdasarkan kamus abusive
+    hapus_abusive_backup = "|".join(map(re.escape, list(kata_abusive))) # menghapus kata abusive berdasarkan kamus abusive
+    pattren_abusive = re.compile('|'.join(map(re.escape, list(kata_abusive))))
+
+
 
     # regex yang digunakan untuk processing
-    combined_pattern = f"{karakter_khusus_regex}|{html_tag}|{non_latin_regex}|{whitespace_regex}|{alphanumeric_regex}|{hapus_abusive}"
-
+    combined_pattern = f"{retweet_regex}|{karakter_khusus_regex}|{html_tag}|{non_latin_regex}|{whitespace_regex}|{alphanumeric_regex}|{hapus_abusive_backup}"
+       
     # looping untuk mengganti kata abusive dan dimasukan ke variable cleaned_text dan meng ignore case sensitive dan insert ke database
     for index, text in enumerate(text_tweet):
-        cleaned_text2 = tanda_baca.sub(r'\1', 
-                        re.subn( combined_pattern, '',
+        cleaned_text = tanda_baca.sub(r'\1',
+                        re.subn(combined_pattern, '',
                         non_latin_regex.sub('', 
                         kuote_belakang.sub('', 
-                        pattern_alay.sub(lambda m: new_dict[m.group().lower()], 
-                        lowercase_regex.sub(lambda x: x.group(0).lower(), text)))), 
+                        pattren_abusive.sub(lambda m: cari_abusive(m,jumlah_abusive),
+                        # pattren_abusive.sub(lambda m: new_dict[m.group().lower()],
+                        pattern_alay.sub(lambda m: new_dict[m.group().lower()],
+                        pattern_alay.sub(lambda w: cari_alay(w,jumlah_alay),
+                        lowercase_regex.sub(lambda x: x.group(0).lower(), text)))))), 
                         flags=re.IGNORECASE)[0])
         
-        sql.execute(insert_tweet_content, ( cleaned_text2,
+        list_alay = ','.join(jumlah_alay)
+        list_abusive = ','.join(jumlah_abusive)
+
+        sql.execute(insert_tweet_content, ( cleaned_text,
                                             data_tweet["HS"][index].item(), 
                                             data_tweet["Abusive"][index].item(), 
                                             data_tweet["HS_Individual"][index].item(), 
@@ -129,11 +138,16 @@ def text_processing_abusive_and_alay_file():
                                             data_tweet["HS_Other"][index].item(), 
                                             data_tweet["HS_Weak"][index].item(), 
                                             data_tweet["HS_Moderate"][index].item(), 
-                                            data_tweet["HS_Strong"][index].item())
+                                            data_tweet["HS_Strong"][index].item(),
+                                            list_alay,
+                                            list_abusive),
                                             )
+        jumlah_alay = []
+        jumlah_abusive = []
+
         #karena output harus json maka di assign variablenya
         json_data.append({
-                            'text': cleaned_text2,
+                            'text': cleaned_text,
                             'HS': data_tweet["HS"][index].item(),
                             'Abusive': data_tweet["Abusive"][index].item(),
                             'HS_Individual': data_tweet["HS_Individual"][index].item(),
@@ -145,7 +159,9 @@ def text_processing_abusive_and_alay_file():
                             'HS_Other': data_tweet["HS_Other"][index].item(),
                             'HS_Weak': data_tweet["HS_Weak"][index].item(),
                             'HS_Moderate': data_tweet["HS_Moderate"][index].item(),
-                            'HS_Strong': data_tweet["HS_Strong"][index].item()
+                            'HS_Strong': data_tweet["HS_Strong"][index].item(),
+                            'Kalimat_Alay':list_alay,
+                            'Kalimat_Abusive:':list_abusive
                         })
         baris=baris+1 #buat debuging aja
         print("{} baris terproses".format(baris)) # untuk debug baris terprocess di terminal karena data banyak dan processnya lama
@@ -167,9 +183,9 @@ def text_processing_abusive_and_alay_file():
 
 # 2. Remove bahasa Alay menggunakan text inputan
 
-@swag_from("docs/text_processing_text_bahasa_alay.yml", methods=['POST'])
-@app.route('/text-processing-text-alay', methods=['POST'])
-def text_processing_alay_input():
+@swag_from("docs/text_processing_text.yml", methods=['POST'])
+@app.route('/text-abusive-dan-alay', methods=['POST'])
+def text_abusive_dan_alay():
 
     # koneksikan database dbtweet
     conn = connection()
@@ -218,9 +234,7 @@ def text_processing_alay_input():
                         lowercase_regex.sub(lambda x: x.group(0).lower(), text_alay)))), 
                         flags=re.IGNORECASE)[0])
     
-
     sql.execute(insert_tweet_text, (cleaned_text,))
-
 
     conn.commit()
     conn.close()
