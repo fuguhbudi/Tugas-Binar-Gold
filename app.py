@@ -21,7 +21,7 @@ app.json_encoder = LazyJSONEncoder
 swagger_template = dict(
 info = {
     'title': LazyString(lambda: 'API Documentation for Data Processing'),
-    'version': LazyString(lambda: '1.4.3'),
+    'version': LazyString(lambda: '1.4.4'),
     'description': LazyString(lambda: 'Dokumentasi API untuk data processing untuk penghapusan bahasa alay dan abusive menggunakan file inputan dan text'),
     },
     host = LazyString(lambda: request.host)

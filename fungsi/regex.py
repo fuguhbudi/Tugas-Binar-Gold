@@ -1,6 +1,7 @@
 import re
 
 # kumpulan function regex yang di gunakan
+
 html_tag = re.compile('<.*?>|&nbsp;|&amp;|&lt;|&gt;') # menghapus html tag
 tanda_baca = re.compile(r'(\W)\1+|[@#$%^&;.,!"]') # menghapus tanda baca lebih dari satu
 non_latin_regex = re.compile(r'[^\x00-\x7F]+') # menghapus huruf latin yang tidak terbaca
@@ -10,11 +11,6 @@ emoji_regex = re.compile("[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-
 whitespace_regex = re.compile(r"\s+") # menghapus white space
 alphanumeric_regex = re.compile(r'^\w+$') #menghapus alpanumeric
 lowercase_regex = re.compile(r'[A-Z]') # mengganti huruf besar
-enter_regex = re.compile(r'\n')
+enter_regex = re.compile(r'\n') # menghapus enter atau \n
 retweet_regex = re.compile(r'rt')  # menghapus retweet symbol
 
-# enter_regex = re.compile(r'\n', ' '),  # menghapus '\n'
-# retweet_regex = re.compile(r'rt', ' '),  # menghapus retweet symbol
-# username_regex = re.compile(r'user', ' '),  # menghapus username
-# whitespace_regex2 = re.compile(r' +', ' '),  # menghapus extra whitespaces
-# retweet_regex, username_regex, url_regex, whitespace_regex2 
