@@ -58,3 +58,5 @@ lib yang digunakan
 Untuk hasil analisa sendiri terdapat pada file "Analysis Data kata Alay dan Abusive.ipynb"
 
 
+Untuk file PPT terdapat di folder report
+
